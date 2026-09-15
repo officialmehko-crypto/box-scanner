@@ -160,7 +160,7 @@ function startScanner() {
 
   const config = {
 
-    fps: 15,
+    fps: 20,
 
     qrbox: {
       width: 320,
@@ -247,19 +247,16 @@ function onScanSuccess(decodedText) {
   }
 
 
-  // Beep
-  beep();
-
   // Vibration
   if (navigator.vibrate) {
-    navigator.vibrate(100);
+    navigator.vibrate(70);
   }
 
 
   showMessage(
     "📦 SCANNED<br><br>" +
     code +
-    "<br><br>⏳ Sheet update ho rahi hai..."
+    "<br><br>⏳ Processing..."
   );
 
 
@@ -272,6 +269,9 @@ function onScanSuccess(decodedText) {
     Date.now() +
     "_" +
     Math.floor(Math.random() * 10000);
+
+
+  let scriptTag = null;
 
 
   window[callbackName] = function(response) {
@@ -289,6 +289,9 @@ function onScanSuccess(decodedText) {
     // ====================================
 
     if (response && response.success) {
+
+      // NORMAL RIGHT SOUND
+      rightSound();
 
       showSuccess(
 
@@ -311,7 +314,7 @@ function onScanSuccess(decodedText) {
       );
 
 
-      // Ready for NEXT BOX
+      // Ready very quickly for NEXT BOX
       setTimeout(function() {
 
         processing = false;
@@ -320,7 +323,7 @@ function onScanSuccess(decodedText) {
           "📷 READY — Next box scan karo."
         );
 
-      }, 700);
+      }, 200);
 
       return;
     }
@@ -334,6 +337,13 @@ function onScanSuccess(decodedText) {
       response &&
       response.type === "duplicate"
     ) {
+
+      // LOUD WRONG SOUND
+      wrongSound();
+
+      if (navigator.vibrate) {
+        navigator.vibrate([150, 80, 150]);
+      }
 
       showError(
         "⚠️ DUPLICATE SCAN ❌<br><br>" +
@@ -349,7 +359,7 @@ function onScanSuccess(decodedText) {
           "📷 READY — Next box scan karo."
         );
 
-      }, 1200);
+      }, 700);
 
       return;
     }
@@ -363,6 +373,13 @@ function onScanSuccess(decodedText) {
       response &&
       response.type === "invalid"
     ) {
+
+      // LOUD WRONG SOUND
+      wrongSound();
+
+      if (navigator.vibrate) {
+        navigator.vibrate([150, 80, 150]);
+      }
 
       showError(
         "❌ INVALID CONTAINER<br><br>" +
@@ -378,7 +395,7 @@ function onScanSuccess(decodedText) {
           "📷 READY — Next box scan karo."
         );
 
-      }, 1200);
+      }, 700);
 
       return;
     }
@@ -387,6 +404,8 @@ function onScanSuccess(decodedText) {
     // ====================================
     // OTHER ERROR
     // ====================================
+
+    wrongSound();
 
     showError(
       "❌ " +
@@ -409,7 +428,7 @@ function onScanSuccess(decodedText) {
         "📷 READY — Next box scan karo."
       );
 
-    }, 1200);
+    }, 700);
 
   };
 
@@ -429,19 +448,27 @@ function onScanSuccess(decodedText) {
     encodeURIComponent(callbackName);
 
 
-  const scriptTag =
+  scriptTag =
     document.createElement("script");
 
 
   scriptTag.src = url;
 
+
   scriptTag.onerror = function() {
 
     delete window[callbackName];
 
+    if (scriptTag && scriptTag.parentNode) {
+      scriptTag.parentNode.removeChild(scriptTag);
+    }
+
+    wrongSound();
+
     showError(
       "❌ Apps Script se connection nahi hua."
     );
+
 
     setTimeout(function() {
 
@@ -451,7 +478,7 @@ function onScanSuccess(decodedText) {
         "📷 READY — Next box scan karo."
       );
 
-    }, 1500);
+    }, 700);
 
   };
 
@@ -548,16 +575,24 @@ function showError(message) {
 
 
 // ========================================
-// BEEP
+// RIGHT SOUND
+// NORMAL SHORT BEEP
 // ========================================
 
-function beep() {
+function rightSound() {
 
   try {
 
+    const AudioContext =
+      window.AudioContext ||
+      window.webkitAudioContext;
+
+    if (!AudioContext) {
+      return;
+    }
+
     const audio =
-      new (window.AudioContext ||
-      window.webkitAudioContext)();
+      new AudioContext();
 
     const oscillator =
       audio.createOscillator();
@@ -569,19 +604,116 @@ function beep() {
 
     gain.connect(audio.destination);
 
-    oscillator.frequency.value = 900;
+    oscillator.type = "sine";
 
-    gain.gain.value = 0.15;
+    oscillator.frequency.value = 800;
+
+    gain.gain.setValueAtTime(
+      0.12,
+      audio.currentTime
+    );
 
     oscillator.start();
 
-    setTimeout(function() {
+    gain.gain.exponentialRampToValueAtTime(
+      0.01,
+      audio.currentTime + 0.10
+    );
 
-      oscillator.stop();
+    oscillator.stop(
+      audio.currentTime + 0.10
+    );
+
+    setTimeout(function() {
 
       audio.close();
 
-    }, 120);
+    }, 200);
+
+  } catch (e) {
+
+    console.log(e);
+
+  }
+
+}
+
+
+// ========================================
+// WRONG SOUND
+// LOUD + DOUBLE BEEP
+// ========================================
+
+function wrongSound() {
+
+  try {
+
+    const AudioContext =
+      window.AudioContext ||
+      window.webkitAudioContext;
+
+    if (!AudioContext) {
+      return;
+    }
+
+    const audio =
+      new AudioContext();
+
+
+    function tone(frequency, startTime) {
+
+      const oscillator =
+        audio.createOscillator();
+
+      const gain =
+        audio.createGain();
+
+      oscillator.connect(gain);
+
+      gain.connect(audio.destination);
+
+      oscillator.type = "square";
+
+      oscillator.frequency.value =
+        frequency;
+
+
+      gain.gain.setValueAtTime(
+        0.35,
+        startTime
+      );
+
+      gain.gain.exponentialRampToValueAtTime(
+        0.01,
+        startTime + 0.18
+      );
+
+
+      oscillator.start(startTime);
+
+      oscillator.stop(
+        startTime + 0.18
+      );
+
+    }
+
+
+    const now =
+      audio.currentTime;
+
+
+    // FIRST LOUD BEEP
+    tone(300, now);
+
+    // SECOND LOUD BEEP
+    tone(220, now + 0.22);
+
+
+    setTimeout(function() {
+
+      audio.close();
+
+    }, 600);
 
   } catch (e) {
 
