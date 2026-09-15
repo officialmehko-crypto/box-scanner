@@ -13,27 +13,28 @@
       font-family: Arial, sans-serif;
       background: #f3f4f6;
       margin: 0;
-      padding: 20px;
+      padding: 15px;
     }
 
     .box {
       max-width: 500px;
       margin: auto;
       background: white;
-      padding: 20px;
+      padding: 18px;
       border-radius: 15px;
       box-shadow: 0 4px 15px rgba(0,0,0,.15);
     }
 
     h2 {
       text-align: center;
+      margin-top: 5px;
     }
 
     input {
       width: 100%;
       box-sizing: border-box;
       padding: 14px;
-      margin: 8px 0;
+      margin: 8px 0 12px;
       border: 1px solid #ccc;
       border-radius: 8px;
       font-size: 17px;
@@ -42,7 +43,7 @@
     button {
       width: 100%;
       padding: 15px;
-      margin-top: 12px;
+      margin-top: 10px;
       border: 0;
       border-radius: 9px;
       font-size: 18px;
@@ -65,12 +66,23 @@
     }
 
     #result {
-      margin-top: 20px;
+      margin-top: 15px;
       padding: 15px;
       border-radius: 10px;
-      background: #eee;
+      background: #eeeeee;
       text-align: center;
       line-height: 1.6;
+      font-weight: bold;
+    }
+
+    .success {
+      background: #d1e7dd !important;
+      color: #0f5132;
+    }
+
+    .error {
+      background: #f8d7da !important;
+      color: #842029;
     }
   </style>
 </head>
@@ -79,49 +91,50 @@
 
 <div class="box">
 
-  <h2>📦 BOX CAMERA SCANNER</h2>
+  <h2>📦 BOX SCANNING</h2>
 
   <input
     id="scannedBy"
     type="text"
-    placeholder="SCANNED BY"
+    placeholder="SCANNED BY - Apna naam"
     autocomplete="off"
   >
 
-  <div id="reader"></div>
-
   <button class="start" onclick="startScanner()">
-    📷 OPEN CAMERA
+    📷 START CAMERA
   </button>
 
   <button class="stop" onclick="stopScanner()">
     🛑 STOP CAMERA
   </button>
 
+  <div id="reader"></div>
+
   <div id="result">
-    Ready for scanning...
+    Naam enter karke camera start karo.
   </div>
 
 </div>
 
+
 <script>
 
 let scanner = null;
-let running = false;
-let alreadyScanned = false;
+let cameraRunning = false;
+let processing = false;
 
 
-// ======================================
-// YOUR APPS SCRIPT WEB APP
-// ======================================
+// ========================================
+// APPS SCRIPT URL
+// ========================================
 
 const APPS_SCRIPT_URL =
 "https://script.google.com/macros/s/AKfycbxqdol2HuvTm6TC0VxiBUiPTE5jxVHY78Qi5Zd8oBWgGGypAs56kyJKarXPYAQmjvx_/exec";
 
 
-// ======================================
+// ========================================
 // START CAMERA
-// ======================================
+// ========================================
 
 function startScanner() {
 
@@ -130,29 +143,32 @@ function startScanner() {
 
   if (!scannedBy) {
 
-    document.getElementById("result").innerHTML =
-      "❌ Pehle SCANNED BY name enter karo.";
+    showError("❌ Pehle SCANNED BY me naam enter karo.");
 
     document.getElementById("scannedBy").focus();
 
     return;
   }
 
-  if (running) return;
+  if (cameraRunning) {
+    return;
+  }
 
-  alreadyScanned = false;
+  processing = false;
 
   scanner = new Html5Qrcode("reader");
 
   const config = {
-    fps: 10,
+
+    fps: 15,
 
     qrbox: {
-      width: 300,
-      height: 150
+      width: 320,
+      height: 160
     },
 
     formatsToSupport: [
+
       Html5QrcodeSupportedFormats.CODE_128,
       Html5QrcodeSupportedFormats.CODE_39,
       Html5QrcodeSupportedFormats.CODE_93,
@@ -162,44 +178,59 @@ function startScanner() {
       Html5QrcodeSupportedFormats.UPC_E,
       Html5QrcodeSupportedFormats.ITF_14,
       Html5QrcodeSupportedFormats.QR_CODE
+
     ]
+
   };
 
+
   scanner.start(
+
     { facingMode: "environment" },
+
     config,
+
     onScanSuccess,
+
     function(error) {}
+
   )
+
   .then(function() {
 
-    running = true;
+    cameraRunning = true;
 
-    document.getElementById("result").innerHTML =
-      "📷 CAMERA ON<br>Barcode scan karo.";
+    showMessage(
+      "📷 CAMERA ON<br>Box barcode scan karo."
+    );
 
   })
+
   .catch(function(error) {
 
-    document.getElementById("result").innerHTML =
+    showError(
       "❌ Camera open nahi hua.<br><br>" +
-      "Camera permission allow karo.";
+      "Camera permission allow karo."
+    );
 
     console.log(error);
 
   });
+
 }
 
 
-// ======================================
-// BARCODE SCANNED
-// ======================================
+// ========================================
+// BARCODE SUCCESS
+// ========================================
 
 function onScanSuccess(decodedText) {
 
-  if (alreadyScanned) return;
+  if (processing) {
+    return;
+  }
 
-  alreadyScanned = true;
+  processing = true;
 
   const code =
     String(decodedText).trim().toUpperCase();
@@ -207,52 +238,357 @@ function onScanSuccess(decodedText) {
   const scannedBy =
     document.getElementById("scannedBy").value.trim();
 
-  document.getElementById("result").innerHTML =
-    "✅ BARCODE SCANNED<br><br>" +
+
+  if (!code) {
+
+    processing = false;
+
+    return;
+  }
+
+
+  // Beep
+  beep();
+
+  // Vibration
+  if (navigator.vibrate) {
+    navigator.vibrate(100);
+  }
+
+
+  showMessage(
+    "📦 SCANNED<br><br>" +
     code +
-    "<br><br>⏳ Google Sheet me entry ho rahi hai...";
+    "<br><br>⏳ Sheet update ho rahi hai..."
+  );
 
-  stopScanner();
 
-  // ====================================
-  // SEND DIRECTLY TO APPS SCRIPT
-  // ====================================
+  // ======================================
+  // JSONP CALLBACK
+  // ======================================
+
+  const callbackName =
+    "scanCallback_" +
+    Date.now() +
+    "_" +
+    Math.floor(Math.random() * 10000);
+
+
+  window[callbackName] = function(response) {
+
+    // Callback cleanup
+    delete window[callbackName];
+
+    if (scriptTag && scriptTag.parentNode) {
+      scriptTag.parentNode.removeChild(scriptTag);
+    }
+
+
+    // ====================================
+    // SUCCESS
+    // ====================================
+
+    if (response && response.success) {
+
+      showSuccess(
+
+        "✅ SCAN SUCCESSFUL<br><br>" +
+
+        "📦 " + response.containerCode +
+        "<br>" +
+
+        "🏪 " + response.marketplace +
+        "<br>" +
+
+        "📦 " + response.itemName +
+        "<br>" +
+
+        "🔢 Qty: " + response.qty +
+        "<br>" +
+
+        "🚚 " + response.vehicleNo
+
+      );
+
+
+      // Ready for NEXT BOX
+      setTimeout(function() {
+
+        processing = false;
+
+        showMessage(
+          "📷 READY — Next box scan karo."
+        );
+
+      }, 700);
+
+      return;
+    }
+
+
+    // ====================================
+    // DUPLICATE
+    // ====================================
+
+    if (
+      response &&
+      response.type === "duplicate"
+    ) {
+
+      showError(
+        "⚠️ DUPLICATE SCAN ❌<br><br>" +
+        response.message
+      );
+
+
+      setTimeout(function() {
+
+        processing = false;
+
+        showMessage(
+          "📷 READY — Next box scan karo."
+        );
+
+      }, 1200);
+
+      return;
+    }
+
+
+    // ====================================
+    // INVALID
+    // ====================================
+
+    if (
+      response &&
+      response.type === "invalid"
+    ) {
+
+      showError(
+        "❌ INVALID CONTAINER<br><br>" +
+        response.message
+      );
+
+
+      setTimeout(function() {
+
+        processing = false;
+
+        showMessage(
+          "📷 READY — Next box scan karo."
+        );
+
+      }, 1200);
+
+      return;
+    }
+
+
+    // ====================================
+    // OTHER ERROR
+    // ====================================
+
+    showError(
+      "❌ " +
+      (
+        response &&
+        response.message
+        ?
+        response.message
+        :
+        "Scan failed."
+      )
+    );
+
+
+    setTimeout(function() {
+
+      processing = false;
+
+      showMessage(
+        "📷 READY — Next box scan karo."
+      );
+
+    }, 1200);
+
+  };
+
+
+  // ======================================
+  // CREATE APPS SCRIPT REQUEST
+  // ======================================
 
   const url =
     APPS_SCRIPT_URL +
     "?scan=1" +
-    "&code=" + encodeURIComponent(code) +
-    "&by=" + encodeURIComponent(scannedBy);
+    "&code=" +
+    encodeURIComponent(code) +
+    "&by=" +
+    encodeURIComponent(scannedBy) +
+    "&callback=" +
+    encodeURIComponent(callbackName);
 
-  setTimeout(function() {
 
-    window.location.href = url;
+  const scriptTag =
+    document.createElement("script");
 
-  }, 500);
+
+  scriptTag.src = url;
+
+  scriptTag.onerror = function() {
+
+    delete window[callbackName];
+
+    showError(
+      "❌ Apps Script se connection nahi hua."
+    );
+
+    setTimeout(function() {
+
+      processing = false;
+
+      showMessage(
+        "📷 READY — Next box scan karo."
+      );
+
+    }, 1500);
+
+  };
+
+
+  document.body.appendChild(scriptTag);
+
 }
 
 
-// ======================================
+// ========================================
 // STOP CAMERA
-// ======================================
+// ========================================
 
 function stopScanner() {
 
-  if (scanner && running) {
-
-    scanner.stop()
-      .then(function() {
-
-        scanner.clear();
-        running = false;
-
-      })
-      .catch(function(error) {
-
-        console.log(error);
-
-      });
+  if (!scanner || !cameraRunning) {
+    return;
   }
+
+
+  scanner.stop()
+
+    .then(function() {
+
+      scanner.clear();
+
+      cameraRunning = false;
+
+      processing = false;
+
+      showMessage(
+        "🛑 Camera stopped."
+      );
+
+    })
+
+    .catch(function(error) {
+
+      console.log(error);
+
+    });
+
+}
+
+
+// ========================================
+// MESSAGE
+// ========================================
+
+function showMessage(message) {
+
+  const box =
+    document.getElementById("result");
+
+  box.className = "";
+
+  box.id = "result";
+
+  box.innerHTML = message;
+
+}
+
+
+// ========================================
+// SUCCESS
+// ========================================
+
+function showSuccess(message) {
+
+  const box =
+    document.getElementById("result");
+
+  box.className = "success";
+
+  box.innerHTML = message;
+
+}
+
+
+// ========================================
+// ERROR
+// ========================================
+
+function showError(message) {
+
+  const box =
+    document.getElementById("result");
+
+  box.className = "error";
+
+  box.innerHTML = message;
+
+}
+
+
+// ========================================
+// BEEP
+// ========================================
+
+function beep() {
+
+  try {
+
+    const audio =
+      new (window.AudioContext ||
+      window.webkitAudioContext)();
+
+    const oscillator =
+      audio.createOscillator();
+
+    const gain =
+      audio.createGain();
+
+    oscillator.connect(gain);
+
+    gain.connect(audio.destination);
+
+    oscillator.frequency.value = 900;
+
+    gain.gain.value = 0.15;
+
+    oscillator.start();
+
+    setTimeout(function() {
+
+      oscillator.stop();
+
+      audio.close();
+
+    }, 120);
+
+  } catch (e) {
+
+    console.log(e);
+
+  }
+
 }
 
 </script>
