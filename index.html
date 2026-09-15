@@ -1,149 +1,173 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>BOX CAMERA SCANNER</title>
+<meta charset="UTF-8">
 
-  <script src="https://unpkg.com/html5-qrcode"></script>
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
 
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f3f4f6;
-      margin: 0;
-      padding: 15px;
-    }
+<title>BOX CAMERA SCANNER</title>
 
-    .box {
-      max-width: 500px;
-      margin: auto;
-      background: white;
-      padding: 18px;
-      border-radius: 15px;
-      box-shadow: 0 4px 15px rgba(0,0,0,.15);
-    }
+<script src="https://unpkg.com/html5-qrcode"></script>
 
-    h2 {
-      text-align: center;
-      margin-top: 5px;
-    }
+<style>
 
-    input {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 14px;
-      margin: 8px 0 12px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      font-size: 17px;
-    }
+body {
+  font-family: Arial, sans-serif;
+  background: #f3f4f6;
+  margin: 0;
+  padding: 15px;
+}
 
-    button {
-      width: 100%;
-      padding: 15px;
-      margin-top: 10px;
-      border: 0;
-      border-radius: 9px;
-      font-size: 18px;
-      font-weight: bold;
-    }
+.box {
+  max-width: 500px;
+  margin: auto;
+  background: white;
+  padding: 18px;
+  border-radius: 15px;
+  box-shadow: 0 4px 15px rgba(0,0,0,.15);
+}
 
-    .start {
-      background: #198754;
-      color: white;
-    }
+h2 {
+  text-align: center;
+  margin-top: 5px;
+}
 
-    .stop {
-      background: #dc3545;
-      color: white;
-    }
+input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 14px;
+  margin: 8px 0 12px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 17px;
+}
 
-    #reader {
-      width: 100%;
-      margin-top: 15px;
-    }
+button {
+  width: 100%;
+  padding: 15px;
+  margin-top: 10px;
+  border: 0;
+  border-radius: 9px;
+  font-size: 18px;
+  font-weight: bold;
+}
 
-    #result {
-      margin-top: 15px;
-      padding: 15px;
-      border-radius: 10px;
-      background: #eeeeee;
-      text-align: center;
-      line-height: 1.6;
-      font-weight: bold;
-    }
+.start {
+  background: #198754;
+  color: white;
+}
 
-    .success {
-      background: #d1e7dd !important;
-      color: #0f5132;
-    }
+.stop {
+  background: #dc3545;
+  color: white;
+}
 
-    .error {
-      background: #f8d7da !important;
-      color: #842029;
-    }
-  </style>
+#reader {
+  width: 100%;
+  margin-top: 15px;
+}
+
+#result {
+  margin-top: 15px;
+  padding: 15px;
+  border-radius: 10px;
+  background: #eeeeee;
+  text-align: center;
+  line-height: 1.6;
+  font-weight: bold;
+}
+
+.success {
+  background: #d1e7dd !important;
+  color: #0f5132;
+}
+
+.error {
+  background: #f8d7da !important;
+  color: #842029;
+}
+
+</style>
+
 </head>
 
 <body>
 
 <div class="box">
 
-  <h2>📦 BOX SCANNING</h2>
+<h2>📦 BOX SCANNING</h2>
 
-  <input
-    id="scannedBy"
-    type="text"
-    placeholder="SCANNED BY - Apna naam"
-    autocomplete="off"
-  >
+<input
+  id="scannedBy"
+  type="text"
+  placeholder="SCANNED BY - Apna naam"
+  autocomplete="off"
+>
 
-  <button class="start" onclick="startScanner()">
-    📷 START CAMERA
-  </button>
+<button class="start"
+        onclick="startScanner()">
+📷 START CAMERA
+</button>
 
-  <button class="stop" onclick="stopScanner()">
-    🛑 STOP CAMERA
-  </button>
+<button class="stop"
+        onclick="stopScanner()">
+🛑 STOP CAMERA
+</button>
 
-  <div id="reader"></div>
+<div id="reader"></div>
 
-  <div id="result">
-    Naam enter karke camera start karo.
-  </div>
+<div id="result">
+Naam enter karke camera start karo.
+</div>
 
 </div>
 
 
 <script>
 
-let scanner = null;
-let cameraRunning = false;
-
-let lastScannedCode = "";
-let lastScanTime = 0;
-
-let audioContext = null;
-
-
-// ========================================
-// APPS SCRIPT URL
-// ========================================
+// ============================================================
+// SETTINGS
+// ============================================================
 
 const APPS_SCRIPT_URL =
 "https://script.google.com/macros/s/AKfycbxqdol2HuvTm6TC0VxiBUiPTE5jxVHY78Qi5Zd8oBWgGGypAs56kyJKarXPYAQmjvx_/exec";
 
 
-// ========================================
+// ============================================================
+// VARIABLES
+// ============================================================
+
+let scanner = null;
+
+let cameraRunning = false;
+
+let lastScannedCode = "";
+
+let lastScanTime = 0;
+
+let audioContext = null;
+
+
+// ============================================================
+// REQUEST QUEUE
+// ============================================================
+
+let scanQueue = [];
+
+let requestRunning = false;
+
+
+// ============================================================
 // START CAMERA
-// ========================================
+// ============================================================
 
 function startScanner() {
 
   const scannedBy =
-    document.getElementById("scannedBy").value.trim();
+    document.getElementById("scannedBy")
+      .value.trim();
 
   if (!scannedBy) {
 
@@ -160,21 +184,24 @@ function startScanner() {
     return;
   }
 
+  localStorage.setItem(
+    "scannedBy",
+    scannedBy
+  );
 
-  // Audio initialize
   initAudio();
 
-
-  scanner = new Html5Qrcode("reader");
+  scanner =
+    new Html5Qrcode("reader");
 
 
   const config = {
 
-    fps: 20,
+    fps: 25,
 
     qrbox: {
-      width: 320,
-      height: 160
+      width: 340,
+      height: 170
     },
 
     formatsToSupport: [
@@ -230,23 +257,23 @@ function startScanner() {
 }
 
 
-// ========================================
+// ============================================================
 // BARCODE DETECTED
-// ========================================
+// ============================================================
 
 function onScanSuccess(decodedText) {
 
   const code =
-    String(decodedText).trim().toUpperCase();
-
+    String(decodedText || "")
+      .trim()
+      .toUpperCase();
 
   if (!code) {
     return;
   }
 
 
-  const now =
-    Date.now();
+  const now = Date.now();
 
 
   // Same barcode protection
@@ -259,11 +286,13 @@ function onScanSuccess(decodedText) {
 
 
   lastScannedCode = code;
+
   lastScanTime = now;
 
 
   const scannedBy =
-    document.getElementById("scannedBy").value.trim();
+    document.getElementById("scannedBy")
+      .value.trim();
 
 
   if (!scannedBy) {
@@ -278,36 +307,110 @@ function onScanSuccess(decodedText) {
   }
 
 
-  // Immediately show scan
+  // ==========================================================
+  // INSTANT SCAN DISPLAY
+  // ==========================================================
+
   showMessage(
     "📦 SCANNED<br><br>" +
-    code
+    code +
+    "<br><br>⏳ Saving..."
   );
 
 
   // Small vibration
   if (navigator.vibrate) {
-    navigator.vibrate(60);
+    navigator.vibrate(50);
   }
 
 
-  // ======================================
-  // JSONP CALLBACK
-  // ======================================
+  // ==========================================================
+  // ADD TO QUEUE
+  // ==========================================================
+
+  scanQueue.push({
+
+    code: code,
+
+    scannedBy: scannedBy
+
+  });
+
+
+  // Immediately process queue
+  processQueue();
+
+}
+
+
+// ============================================================
+// QUEUE PROCESSOR
+// ============================================================
+
+function processQueue() {
+
+  if (requestRunning) {
+    return;
+  }
+
+  if (scanQueue.length === 0) {
+    return;
+  }
+
+
+  requestRunning = true;
+
+
+  const item =
+    scanQueue.shift();
+
+
+  sendToAppsScript(
+    item.code,
+    item.scannedBy
+  );
+
+}
+
+
+// ============================================================
+// SEND JSONP
+// ============================================================
+
+function sendToAppsScript(
+  code,
+  scannedBy
+) {
 
   const callbackName =
     "scanCallback_" +
     Date.now() +
     "_" +
-    Math.floor(Math.random() * 10000);
+    Math.floor(
+      Math.random() * 100000
+    );
 
 
-  let scriptTag = null;
+  let scriptTag =
+    document.createElement("script");
 
 
-  window[callbackName] = function(response) {
+  let finished = false;
 
-    // Cleanup
+
+  // ==========================================================
+  // CLEANUP
+  // ==========================================================
+
+  function cleanup() {
+
+    if (finished) {
+      return;
+    }
+
+    finished = true;
+
+
     delete window[callbackName];
 
 
@@ -322,184 +425,162 @@ function onScanSuccess(decodedText) {
 
     }
 
+  }
 
-    // ====================================
-    // RIGHT / VALID
-    // ====================================
 
-    if (
-      response &&
-      response.success
-    ) {
+  // ==========================================================
+  // CALLBACK
+  // ==========================================================
 
-      // CLEAR RIGHT BEEP
-      rightSound();
+  window[callbackName] =
+    function(response) {
 
+      cleanup();
 
-      showSuccess(
 
-        "✅ RIGHT SCAN<br><br>" +
+      // ========================================
+      // SUCCESS
+      // ========================================
 
-        "📦 " +
-        response.containerCode +
-
-        "<br>" +
-
-        "🏪 " +
-        response.marketplace +
-
-        "<br>" +
-
-        "📦 " +
-        response.itemName +
-
-        "<br>" +
-
-        "🔢 Qty: " +
-        response.qty +
-
-        "<br>" +
-
-        "🚚 " +
-        response.vehicleNo
-
-      );
-
-
-      setTimeout(function() {
-
-        showMessage(
-          "📷 READY — Next box scan karo."
-        );
-
-      }, 250);
-
-
-      return;
-    }
-
-
-    // ====================================
-    // DUPLICATE / WRONG
-    // ====================================
-
-    if (
-      response &&
-      response.type === "duplicate"
-    ) {
-
-      wrongSound();
-
-
-      if (navigator.vibrate) {
-
-        navigator.vibrate(
-          [180, 70, 180]
-        );
-
-      }
-
-
-      showError(
-
-        "⚠️ DUPLICATE SCAN ❌<br><br>" +
-        response.message
-
-      );
-
-
-      setTimeout(function() {
-
-        showMessage(
-          "📷 READY — Next box scan karo."
-        );
-
-      }, 500);
-
-
-      return;
-    }
-
-
-    // ====================================
-    // INVALID / WRONG
-    // ====================================
-
-    if (
-      response &&
-      response.type === "invalid"
-    ) {
-
-      wrongSound();
-
-
-      if (navigator.vibrate) {
-
-        navigator.vibrate(
-          [180, 70, 180]
-        );
-
-      }
-
-
-      showError(
-
-        "❌ INVALID CONTAINER<br><br>" +
-        response.message
-
-      );
-
-
-      setTimeout(function() {
-
-        showMessage(
-          "📷 READY — Next box scan karo."
-        );
-
-      }, 500);
-
-
-      return;
-    }
-
-
-    // ====================================
-    // OTHER ERROR
-    // ====================================
-
-    wrongSound();
-
-
-    showError(
-
-      "❌ " +
-
-      (
+      if (
         response &&
-        response.message
-        ?
-        response.message
-        :
-        "Scan failed."
-      )
+        response.success
+      ) {
 
-    );
+        rightSound();
 
 
-    setTimeout(function() {
+        showSuccess(
 
-      showMessage(
-        "📷 READY — Next box scan karo."
+          "✅ RIGHT SCAN<br><br>" +
+
+          "📦 " +
+          response.containerCode +
+
+          "<br>🏪 " +
+          response.marketplace +
+
+          "<br>📦 " +
+          response.itemName +
+
+          "<br>🔢 Qty: " +
+          response.qty +
+
+          "<br>🚚 " +
+          response.vehicleNo
+
+        );
+
+
+        // Continue queue immediately
+        requestRunning = false;
+
+        processQueue();
+
+        return;
+      }
+
+
+      // ========================================
+      // DUPLICATE
+      // ========================================
+
+      if (
+        response &&
+        response.type === "duplicate"
+      ) {
+
+        wrongSound();
+
+
+        if (navigator.vibrate) {
+
+          navigator.vibrate(
+            [150, 60, 150]
+          );
+
+        }
+
+
+        showError(
+          "⚠️ DUPLICATE SCAN ❌<br><br>" +
+          response.message
+        );
+
+
+        requestRunning = false;
+
+        processQueue();
+
+        return;
+      }
+
+
+      // ========================================
+      // INVALID
+      // ========================================
+
+      if (
+        response &&
+        response.type === "invalid"
+      ) {
+
+        wrongSound();
+
+
+        if (navigator.vibrate) {
+
+          navigator.vibrate(
+            [150, 60, 150]
+          );
+
+        }
+
+
+        showError(
+          "❌ INVALID CONTAINER<br><br>" +
+          response.message
+        );
+
+
+        requestRunning = false;
+
+        processQueue();
+
+        return;
+      }
+
+
+      // ========================================
+      // BUSY / OTHER ERROR
+      // ========================================
+
+      wrongSound();
+
+
+      showError(
+        "❌ " +
+        (
+          response &&
+          response.message
+          ?
+          response.message
+          :
+          "Scan failed."
+        )
       );
 
-    }, 500);
 
-  };
+      requestRunning = false;
+
+      processQueue();
+
+    };
 
 
-  // ======================================
-  // APPS SCRIPT REQUEST
-  // ======================================
+  // ==========================================================
+  // URL
+  // ==========================================================
 
   const url =
 
@@ -517,38 +598,35 @@ function onScanSuccess(decodedText) {
     encodeURIComponent(callbackName);
 
 
-  scriptTag =
-    document.createElement("script");
-
-
   scriptTag.src = url;
 
 
-  scriptTag.onerror = function() {
+  // ==========================================================
+  // ERROR
+  // ==========================================================
 
-    delete window[callbackName];
+  scriptTag.onerror =
+    function() {
+
+      cleanup();
 
 
-    if (
-      scriptTag &&
-      scriptTag.parentNode
-    ) {
+      wrongSound();
 
-      scriptTag.parentNode.removeChild(
-        scriptTag
+
+      showError(
+        "⚠️ Apps Script response late hai.<br>" +
+        "Scan queue me hai."
       );
 
-    }
+
+      requestRunning = false;
 
 
-    wrongSound();
+      // Continue with next queued scan
+      processQueue();
 
-
-    showError(
-      "❌ Apps Script se connection nahi hua."
-    );
-
-  };
+    };
 
 
   document.body.appendChild(
@@ -558,9 +636,9 @@ function onScanSuccess(decodedText) {
 }
 
 
-// ========================================
+// ============================================================
 // STOP CAMERA
-// ========================================
+// ============================================================
 
 function stopScanner() {
 
@@ -568,7 +646,6 @@ function stopScanner() {
     !scanner ||
     !cameraRunning
   ) {
-
     return;
   }
 
@@ -582,7 +659,12 @@ function stopScanner() {
       cameraRunning = false;
 
       lastScannedCode = "";
+
       lastScanTime = 0;
+
+      scanQueue = [];
+
+      requestRunning = false;
 
 
       showMessage(
@@ -600,9 +682,9 @@ function stopScanner() {
 }
 
 
-// ========================================
+// ============================================================
 // MESSAGE
-// ========================================
+// ============================================================
 
 function showMessage(message) {
 
@@ -616,9 +698,9 @@ function showMessage(message) {
 }
 
 
-// ========================================
+// ============================================================
 // SUCCESS
-// ========================================
+// ============================================================
 
 function showSuccess(message) {
 
@@ -632,9 +714,9 @@ function showSuccess(message) {
 }
 
 
-// ========================================
+// ============================================================
 // ERROR
-// ========================================
+// ============================================================
 
 function showError(message) {
 
@@ -648,9 +730,9 @@ function showError(message) {
 }
 
 
-// ========================================
-// INITIALIZE AUDIO
-// ========================================
+// ============================================================
+// AUDIO
+// ============================================================
 
 function initAudio() {
 
@@ -659,7 +741,6 @@ function initAudio() {
     const AudioContext =
       window.AudioContext ||
       window.webkitAudioContext;
-
 
     if (!AudioContext) {
       return;
@@ -692,17 +773,15 @@ function initAudio() {
 }
 
 
-// ========================================
+// ============================================================
 // RIGHT SOUND
-// CLEAR + NOTICEABLE
-// ========================================
+// ============================================================
 
 function rightSound() {
 
   try {
 
     initAudio();
-
 
     if (!audioContext) {
       return;
@@ -727,7 +806,6 @@ function rightSound() {
     );
 
 
-    // Clear beep
     oscillator.type =
       "sine";
 
@@ -738,7 +816,6 @@ function rightSound() {
     );
 
 
-    // Louder than previous beep
     gain.gain.setValueAtTime(
       0.28,
       now
@@ -766,17 +843,15 @@ function rightSound() {
 }
 
 
-// ========================================
+// ============================================================
 // WRONG SOUND
-// LOUD DOUBLE BEEP
-// ========================================
+// ============================================================
 
 function wrongSound() {
 
   try {
 
     initAudio();
-
 
     if (!audioContext) {
       return;
@@ -835,14 +910,12 @@ function wrongSound() {
     }
 
 
-    // First loud beep
     makeTone(
       300,
       now
     );
 
 
-    // Second loud beep
     makeTone(
       220,
       now + 0.20
@@ -855,6 +928,29 @@ function wrongSound() {
   }
 
 }
+
+
+// ============================================================
+// LOAD SAVED NAME
+// ============================================================
+
+window.onload =
+  function() {
+
+    const savedName =
+      localStorage.getItem(
+        "scannedBy"
+      );
+
+    if (savedName) {
+
+      document.getElementById(
+        "scannedBy"
+      ).value = savedName;
+
+    }
+
+  };
 
 </script>
 
