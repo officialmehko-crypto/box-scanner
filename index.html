@@ -121,7 +121,13 @@
 
 let scanner = null;
 let cameraRunning = false;
-let processing = false;
+
+// Same barcode ko baar-baar detect hone se rokne ke liye
+let lastScannedCode = "";
+let lastScanTime = 0;
+
+// Audio context
+let audioContext = null;
 
 
 // ========================================
@@ -143,7 +149,9 @@ function startScanner() {
 
   if (!scannedBy) {
 
-    showError("❌ Pehle SCANNED BY me naam enter karo.");
+    showError(
+      "❌ Pehle SCANNED BY me naam enter karo."
+    );
 
     document.getElementById("scannedBy").focus();
 
@@ -154,12 +162,17 @@ function startScanner() {
     return;
   }
 
-  processing = false;
+
+  // Audio ko user click ke time initialize karna
+  initAudio();
+
 
   scanner = new Html5Qrcode("reader");
 
+
   const config = {
 
+    // Fast camera scanning
     fps: 20,
 
     qrbox: {
@@ -201,7 +214,7 @@ function startScanner() {
     cameraRunning = true;
 
     showMessage(
-      "📷 CAMERA ON<br>Box barcode scan karo."
+      "📷 CAMERA ON<br><br>Box barcode scan karo."
     );
 
   })
@@ -221,43 +234,74 @@ function startScanner() {
 
 
 // ========================================
-// BARCODE SUCCESS
+// BARCODE DETECTED
 // ========================================
 
 function onScanSuccess(decodedText) {
 
-  if (processing) {
+  const code =
+    String(decodedText).trim().toUpperCase();
+
+
+  if (!code) {
     return;
   }
 
-  processing = true;
 
-  const code =
-    String(decodedText).trim().toUpperCase();
+  const now =
+    Date.now();
+
+
+  // ======================================
+  // SAME CODE PROTECTION
+  // 1.5 second tak same barcode ignore
+  // ======================================
+
+  if (
+    code === lastScannedCode &&
+    now - lastScanTime < 1500
+  ) {
+    return;
+  }
+
+
+  lastScannedCode = code;
+  lastScanTime = now;
+
 
   const scannedBy =
     document.getElementById("scannedBy").value.trim();
 
 
-  if (!code) {
+  if (!scannedBy) {
 
-    processing = false;
+    wrongSound();
+
+    showError(
+      "❌ SCANNED BY me naam enter karo."
+    );
 
     return;
   }
 
 
-  // Vibration
-  if (navigator.vibrate) {
-    navigator.vibrate(70);
-  }
+  // ======================================
+  // IMPORTANT:
+  // Camera ko WAIT nahi karna padega
+  // ======================================
 
 
+  // Turant normal scan feedback
   showMessage(
     "📦 SCANNED<br><br>" +
-    code +
-    "<br><br>⏳ Processing..."
+    code
   );
+
+
+  // Vibration
+  if (navigator.vibrate) {
+    navigator.vibrate(60);
+  }
 
 
   // ======================================
@@ -276,61 +320,81 @@ function onScanSuccess(decodedText) {
 
   window[callbackName] = function(response) {
 
-    // Callback cleanup
+    // Cleanup
     delete window[callbackName];
 
-    if (scriptTag && scriptTag.parentNode) {
-      scriptTag.parentNode.removeChild(scriptTag);
+    if (
+      scriptTag &&
+      scriptTag.parentNode
+    ) {
+
+      scriptTag.parentNode.removeChild(
+        scriptTag
+      );
+
     }
 
 
     // ====================================
-    // SUCCESS
+    // VALID / RIGHT
     // ====================================
 
-    if (response && response.success) {
+    if (
+      response &&
+      response.success
+    ) {
 
       // NORMAL RIGHT SOUND
       rightSound();
 
+
       showSuccess(
 
-        "✅ SCAN SUCCESSFUL<br><br>" +
+        "✅ RIGHT SCAN<br><br>" +
 
-        "📦 " + response.containerCode +
+        "📦 " +
+        response.containerCode +
+
         "<br>" +
 
-        "🏪 " + response.marketplace +
+        "🏪 " +
+        response.marketplace +
+
         "<br>" +
 
-        "📦 " + response.itemName +
+        "📦 " +
+        response.itemName +
+
         "<br>" +
 
-        "🔢 Qty: " + response.qty +
+        "🔢 Qty: " +
+        response.qty +
+
         "<br>" +
 
-        "🚚 " + response.vehicleNo
+        "🚚 " +
+        response.vehicleNo
 
       );
 
 
-      // Ready very quickly for NEXT BOX
+      // Result sirf display ke liye
+      // Camera already ready hai
       setTimeout(function() {
-
-        processing = false;
 
         showMessage(
           "📷 READY — Next box scan karo."
         );
 
-      }, 200);
+      }, 300);
+
 
       return;
     }
 
 
     // ====================================
-    // DUPLICATE
+    // DUPLICATE / WRONG
     // ====================================
 
     if (
@@ -338,35 +402,41 @@ function onScanSuccess(decodedText) {
       response.type === "duplicate"
     ) {
 
-      // LOUD WRONG SOUND
       wrongSound();
 
+
       if (navigator.vibrate) {
-        navigator.vibrate([150, 80, 150]);
+
+        navigator.vibrate(
+          [180, 70, 180]
+        );
+
       }
 
+
       showError(
+
         "⚠️ DUPLICATE SCAN ❌<br><br>" +
         response.message
+
       );
 
 
       setTimeout(function() {
 
-        processing = false;
-
         showMessage(
           "📷 READY — Next box scan karo."
         );
 
-      }, 700);
+      }, 500);
+
 
       return;
     }
 
 
     // ====================================
-    // INVALID
+    // INVALID / WRONG
     // ====================================
 
     if (
@@ -374,28 +444,34 @@ function onScanSuccess(decodedText) {
       response.type === "invalid"
     ) {
 
-      // LOUD WRONG SOUND
       wrongSound();
 
+
       if (navigator.vibrate) {
-        navigator.vibrate([150, 80, 150]);
+
+        navigator.vibrate(
+          [180, 70, 180]
+        );
+
       }
 
+
       showError(
+
         "❌ INVALID CONTAINER<br><br>" +
         response.message
+
       );
 
 
       setTimeout(function() {
 
-        processing = false;
-
         showMessage(
           "📷 READY — Next box scan karo."
         );
 
-      }, 700);
+      }, 500);
+
 
       return;
     }
@@ -407,8 +483,11 @@ function onScanSuccess(decodedText) {
 
     wrongSound();
 
+
     showError(
+
       "❌ " +
+
       (
         response &&
         response.message
@@ -417,33 +496,37 @@ function onScanSuccess(decodedText) {
         :
         "Scan failed."
       )
+
     );
 
 
     setTimeout(function() {
 
-      processing = false;
-
       showMessage(
         "📷 READY — Next box scan karo."
       );
 
-    }, 700);
+    }, 500);
 
   };
 
 
   // ======================================
-  // CREATE APPS SCRIPT REQUEST
+  // APPS SCRIPT REQUEST
   // ======================================
 
   const url =
+
     APPS_SCRIPT_URL +
+
     "?scan=1" +
+
     "&code=" +
     encodeURIComponent(code) +
+
     "&by=" +
     encodeURIComponent(scannedBy) +
+
     "&callback=" +
     encodeURIComponent(callbackName);
 
@@ -459,31 +542,33 @@ function onScanSuccess(decodedText) {
 
     delete window[callbackName];
 
-    if (scriptTag && scriptTag.parentNode) {
-      scriptTag.parentNode.removeChild(scriptTag);
+
+    if (
+      scriptTag &&
+      scriptTag.parentNode
+    ) {
+
+      scriptTag.parentNode.removeChild(
+        scriptTag
+      );
+
     }
 
+
     wrongSound();
+
 
     showError(
       "❌ Apps Script se connection nahi hua."
     );
 
 
-    setTimeout(function() {
-
-      processing = false;
-
-      showMessage(
-        "📷 READY — Next box scan karo."
-      );
-
-    }, 700);
-
   };
 
 
-  document.body.appendChild(scriptTag);
+  document.body.appendChild(
+    scriptTag
+  );
 
 }
 
@@ -494,8 +579,13 @@ function onScanSuccess(decodedText) {
 
 function stopScanner() {
 
-  if (!scanner || !cameraRunning) {
+  if (
+    !scanner ||
+    !cameraRunning
+  ) {
+
     return;
+
   }
 
 
@@ -507,7 +597,9 @@ function stopScanner() {
 
       cameraRunning = false;
 
-      processing = false;
+      lastScannedCode = "";
+      lastScanTime = 0;
+
 
       showMessage(
         "🛑 Camera stopped."
@@ -534,8 +626,6 @@ function showMessage(message) {
     document.getElementById("result");
 
   box.className = "";
-
-  box.id = "result";
 
   box.innerHTML = message;
 
@@ -575,6 +665,50 @@ function showError(message) {
 
 
 // ========================================
+// INITIALIZE AUDIO
+// ========================================
+
+function initAudio() {
+
+  try {
+
+    const AudioContext =
+      window.AudioContext ||
+      window.webkitAudioContext;
+
+
+    if (!AudioContext) {
+      return;
+    }
+
+
+    if (!audioContext) {
+
+      audioContext =
+        new AudioContext();
+
+    }
+
+
+    if (
+      audioContext.state ===
+      "suspended"
+    ) {
+
+      audioContext.resume();
+
+    }
+
+  } catch (e) {
+
+    console.log(e);
+
+  }
+
+}
+
+
+// ========================================
 // RIGHT SOUND
 // NORMAL SHORT BEEP
 // ========================================
@@ -583,52 +717,57 @@ function rightSound() {
 
   try {
 
-    const AudioContext =
-      window.AudioContext ||
-      window.webkitAudioContext;
+    initAudio();
 
-    if (!AudioContext) {
+
+    if (!audioContext) {
       return;
     }
 
-    const audio =
-      new AudioContext();
 
     const oscillator =
-      audio.createOscillator();
+      audioContext.createOscillator();
 
     const gain =
-      audio.createGain();
+      audioContext.createGain();
+
 
     oscillator.connect(gain);
 
-    gain.connect(audio.destination);
+    gain.connect(
+      audioContext.destination
+    );
 
-    oscillator.type = "sine";
 
-    oscillator.frequency.value = 800;
+    oscillator.type =
+      "sine";
+
+
+    oscillator.frequency.value =
+      850;
+
+
+    const now =
+      audioContext.currentTime;
+
 
     gain.gain.setValueAtTime(
       0.12,
-      audio.currentTime
+      now
     );
 
-    oscillator.start();
 
     gain.gain.exponentialRampToValueAtTime(
       0.01,
-      audio.currentTime + 0.10
+      now + 0.10
     );
+
+
+    oscillator.start(now);
 
     oscillator.stop(
-      audio.currentTime + 0.10
+      now + 0.10
     );
-
-    setTimeout(function() {
-
-      audio.close();
-
-    }, 200);
 
   } catch (e) {
 
@@ -641,79 +780,86 @@ function rightSound() {
 
 // ========================================
 // WRONG SOUND
-// LOUD + DOUBLE BEEP
+// LOUD DOUBLE BEEP
 // ========================================
 
 function wrongSound() {
 
   try {
 
-    const AudioContext =
-      window.AudioContext ||
-      window.webkitAudioContext;
+    initAudio();
 
-    if (!AudioContext) {
+
+    if (!audioContext) {
       return;
     }
 
-    const audio =
-      new AudioContext();
+
+    const now =
+      audioContext.currentTime;
 
 
-    function tone(frequency, startTime) {
+    function makeTone(
+      frequency,
+      start
+    ) {
 
       const oscillator =
-        audio.createOscillator();
+        audioContext.createOscillator();
 
       const gain =
-        audio.createGain();
+        audioContext.createGain();
+
 
       oscillator.connect(gain);
 
-      gain.connect(audio.destination);
+      gain.connect(
+        audioContext.destination
+      );
 
-      oscillator.type = "square";
+
+      oscillator.type =
+        "square";
+
 
       oscillator.frequency.value =
         frequency;
 
 
       gain.gain.setValueAtTime(
-        0.35,
-        startTime
+        0.45,
+        start
       );
+
 
       gain.gain.exponentialRampToValueAtTime(
         0.01,
-        startTime + 0.18
+        start + 0.16
       );
 
 
-      oscillator.start(startTime);
+      oscillator.start(start);
 
       oscillator.stop(
-        startTime + 0.18
+        start + 0.16
       );
 
     }
 
 
-    const now =
-      audio.currentTime;
+    // LOUD FIRST BEEP
+    makeTone(
+      300,
+      now
+    );
 
 
-    // FIRST LOUD BEEP
-    tone(300, now);
+    // LOUD SECOND BEEP
+    makeTone(
+      220,
+      now + 0.20
+    );
 
-    // SECOND LOUD BEEP
-    tone(220, now + 0.22);
-
-
-    setTimeout(function() {
-
-      audio.close();
-
-    }, 600);
 
   } catch (e) {
 
