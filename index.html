@@ -122,11 +122,9 @@
 let scanner = null;
 let cameraRunning = false;
 
-// Same barcode ko baar-baar detect hone se rokne ke liye
 let lastScannedCode = "";
 let lastScanTime = 0;
 
-// Audio context
 let audioContext = null;
 
 
@@ -163,7 +161,7 @@ function startScanner() {
   }
 
 
-  // Audio ko user click ke time initialize karna
+  // Audio initialize
   initAudio();
 
 
@@ -172,7 +170,6 @@ function startScanner() {
 
   const config = {
 
-    // Fast camera scanning
     fps: 20,
 
     qrbox: {
@@ -252,11 +249,7 @@ function onScanSuccess(decodedText) {
     Date.now();
 
 
-  // ======================================
-  // SAME CODE PROTECTION
-  // 1.5 second tak same barcode ignore
-  // ======================================
-
+  // Same barcode protection
   if (
     code === lastScannedCode &&
     now - lastScanTime < 1500
@@ -285,20 +278,14 @@ function onScanSuccess(decodedText) {
   }
 
 
-  // ======================================
-  // IMPORTANT:
-  // Camera ko WAIT nahi karna padega
-  // ======================================
-
-
-  // Turant normal scan feedback
+  // Immediately show scan
   showMessage(
     "📦 SCANNED<br><br>" +
     code
   );
 
 
-  // Vibration
+  // Small vibration
   if (navigator.vibrate) {
     navigator.vibrate(60);
   }
@@ -323,6 +310,7 @@ function onScanSuccess(decodedText) {
     // Cleanup
     delete window[callbackName];
 
+
     if (
       scriptTag &&
       scriptTag.parentNode
@@ -336,7 +324,7 @@ function onScanSuccess(decodedText) {
 
 
     // ====================================
-    // VALID / RIGHT
+    // RIGHT / VALID
     // ====================================
 
     if (
@@ -344,7 +332,7 @@ function onScanSuccess(decodedText) {
       response.success
     ) {
 
-      // NORMAL RIGHT SOUND
+      // CLEAR RIGHT BEEP
       rightSound();
 
 
@@ -378,15 +366,13 @@ function onScanSuccess(decodedText) {
       );
 
 
-      // Result sirf display ke liye
-      // Camera already ready hai
       setTimeout(function() {
 
         showMessage(
           "📷 READY — Next box scan karo."
         );
 
-      }, 300);
+      }, 250);
 
 
       return;
@@ -562,7 +548,6 @@ function onScanSuccess(decodedText) {
       "❌ Apps Script se connection nahi hua."
     );
 
-
   };
 
 
@@ -585,7 +570,6 @@ function stopScanner() {
   ) {
 
     return;
-
   }
 
 
@@ -710,7 +694,7 @@ function initAudio() {
 
 // ========================================
 // RIGHT SOUND
-// NORMAL SHORT BEEP
+// CLEAR + NOTICEABLE
 // ========================================
 
 function rightSound() {
@@ -723,6 +707,10 @@ function rightSound() {
     if (!audioContext) {
       return;
     }
+
+
+    const now =
+      audioContext.currentTime;
 
 
     const oscillator =
@@ -739,34 +727,34 @@ function rightSound() {
     );
 
 
+    // Clear beep
     oscillator.type =
       "sine";
 
 
-    oscillator.frequency.value =
-      850;
+    oscillator.frequency.setValueAtTime(
+      1100,
+      now
+    );
 
 
-    const now =
-      audioContext.currentTime;
-
-
+    // Louder than previous beep
     gain.gain.setValueAtTime(
-      0.12,
+      0.28,
       now
     );
 
 
     gain.gain.exponentialRampToValueAtTime(
       0.01,
-      now + 0.10
+      now + 0.16
     );
 
 
     oscillator.start(now);
 
     oscillator.stop(
-      now + 0.10
+      now + 0.16
     );
 
   } catch (e) {
@@ -847,19 +835,18 @@ function wrongSound() {
     }
 
 
-    // LOUD FIRST BEEP
+    // First loud beep
     makeTone(
       300,
       now
     );
 
 
-    // LOUD SECOND BEEP
+    // Second loud beep
     makeTone(
       220,
       now + 0.20
     );
-
 
   } catch (e) {
 
