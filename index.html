@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>BOX CAMERA SCANNER</title>
+
+  <script src="https://unpkg.com/html5-qrcode"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .box {
+      max-width: 500px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 15px;
+      box-shadow: 0 3px 15px rgba(0,0,0,0.15);
+    }
+
+    h2 {
+      margin-top: 0;
+    }
+
+    #reader {
+      width: 100%;
+      margin-top: 20px;
+    }
+
+    #result {
+      margin-top: 20px;
+      padding: 15px;
+      font-size: 20px;
+      font-weight: bold;
+      border-radius: 10px;
+      background: #eeeeee;
+    }
+
+    button {
+      width: 100%;
+      padding: 15px;
+      margin-top: 15px;
+      font-size: 18px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    .start {
+      background: #198754;
+      color: white;
+    }
+
+    .stop {
+      background: #dc3545;
+      color: white;
+    }
+
+    input {
+      width: 95%;
+      padding: 14px;
+      font-size: 17px;
+      margin-top: 10px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="box">
+
+  <h2>📦 BOX CAMERA SCANNER</h2>
+
+  <input
+    type="text"
+    id="manualCode"
+    placeholder="Container Code"
+  >
+
+  <button class="start" onclick="startScanner()">
+    📷 OPEN CAMERA
+  </button>
+
+  <button class="stop" onclick="stopScanner()">
+    🛑 STOP CAMERA
+  </button>
+
+  <div id="reader"></div>
+
+  <div id="result">
+    Scan a container barcode
+  </div>
+
+</div>
+
+
+<script>
+
+let scanner = null;
+let scanning = false;
+
+
+// ===============================
+// START CAMERA
+// ===============================
+
+function startScanner() {
+
+  if (scanning) {
+    return;
+  }
+
+  scanner = new Html5Qrcode("reader");
+
+  const config = {
+    fps: 10,
+    qrbox: {
+      width: 300,
+      height: 150
+    },
+
+    formatsToSupport: [
+      Html5QrcodeSupportedFormats.CODE_128,
+      Html5QrcodeSupportedFormats.CODE_39,
+      Html5QrcodeSupportedFormats.CODE_93,
+      Html5QrcodeSupportedFormats.EAN_13,
+      Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.UPC_A,
+      Html5QrcodeSupportedFormats.UPC_E,
+      Html5QrcodeSupportedFormats.ITF_14,
+      Html5QrcodeSupportedFormats.QR_CODE
+    ]
+  };
+
+  scanner.start(
+    {
+      facingMode: "environment"
+    },
+    config,
+    onScanSuccess,
+    onScanError
+  )
+  .then(function() {
+
+    scanning = true;
+
+    document.getElementById("result").innerHTML =
+      "📷 Camera ON — Barcode scan karo";
+
+  })
+  .catch(function(error) {
+
+    document.getElementById("result").innerHTML =
+      "❌ Camera open nahi hua.<br><br>" +
+      "Camera permission allow karo.";
+
+    console.log(error);
+
+  });
+
+}
+
+
+// ===============================
+// SUCCESSFUL SCAN
+// ===============================
+
+function onScanSuccess(decodedText, decodedResult) {
+
+  if (!decodedText) {
+    return;
+  }
+
+  document.getElementById("manualCode").value = decodedText;
+
+  document.getElementById("result").innerHTML =
+    "✅ SCANNED<br><br>" + decodedText;
+
+  // Stop camera after successful scan
+  stopScanner();
+
+  // Send barcode back to original window
+  if (window.opener) {
+
+    window.opener.postMessage(
+      {
+        type: "BOX_SCANNED",
+        containerCode: decodedText
+      },
+      "*"
+    );
+
+    document.getElementById("result").innerHTML =
+      "✅ SCAN SUCCESSFUL<br><br>" +
+      decodedText +
+      "<br><br>Ab BOX SCANNING tab par wapas jao.";
+
+  }
+
+}
+
+
+// ===============================
+// SCAN ERROR
+// ===============================
+
+function onScanError(errorMessage) {
+
+  // Ignore normal scanning errors
+
+}
+
+
+// ===============================
+// STOP CAMERA
+// ===============================
+
+function stopScanner() {
+
+  if (scanner && scanning) {
+
+    scanner.stop()
+      .then(function() {
+
+        scanner.clear();
+        scanning = false;
+
+      })
+      .catch(function(error) {
+
+        console.log(error);
+
+      });
+
+  }
+
+}
+
+</script>
+
+</body>
+</html>
