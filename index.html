@@ -11,8 +11,7 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f5f5f5;
-      text-align: center;
+      background: #f3f4f6;
       margin: 0;
       padding: 20px;
     }
@@ -23,35 +22,31 @@
       background: white;
       padding: 20px;
       border-radius: 15px;
-      box-shadow: 0 3px 15px rgba(0,0,0,0.15);
+      box-shadow: 0 4px 15px rgba(0,0,0,.15);
     }
 
     h2 {
-      margin-top: 0;
+      text-align: center;
     }
 
-    #reader {
+    input {
       width: 100%;
-      margin-top: 20px;
-    }
-
-    #result {
-      margin-top: 20px;
-      padding: 15px;
-      font-size: 20px;
-      font-weight: bold;
-      border-radius: 10px;
-      background: #eeeeee;
+      box-sizing: border-box;
+      padding: 14px;
+      margin: 8px 0;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 17px;
     }
 
     button {
       width: 100%;
       padding: 15px;
-      margin-top: 15px;
+      margin-top: 12px;
+      border: 0;
+      border-radius: 9px;
       font-size: 18px;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
+      font-weight: bold;
     }
 
     .start {
@@ -64,13 +59,18 @@
       color: white;
     }
 
-    input {
-      width: 95%;
-      padding: 14px;
-      font-size: 17px;
-      margin-top: 10px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
+    #reader {
+      width: 100%;
+      margin-top: 15px;
+    }
+
+    #result {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 10px;
+      background: #eee;
+      text-align: center;
+      line-height: 1.6;
     }
   </style>
 </head>
@@ -82,10 +82,13 @@
   <h2>📦 BOX CAMERA SCANNER</h2>
 
   <input
+    id="scannedBy"
     type="text"
-    id="manualCode"
-    placeholder="Container Code"
+    placeholder="SCANNED BY"
+    autocomplete="off"
   >
+
+  <div id="reader"></div>
 
   <button class="start" onclick="startScanner()">
     📷 OPEN CAMERA
@@ -95,35 +98,55 @@
     🛑 STOP CAMERA
   </button>
 
-  <div id="reader"></div>
-
   <div id="result">
-    Scan a container barcode
+    Ready for scanning...
   </div>
 
 </div>
 
-
 <script>
 
 let scanner = null;
-let scanning = false;
+let running = false;
+let alreadyScanned = false;
 
 
-// ===============================
+// ======================================
+// YOUR APPS SCRIPT WEB APP
+// ======================================
+
+const APPS_SCRIPT_URL =
+"https://script.google.com/macros/s/AKfycbxqdol2HuvTm6TC0VxiBUiPTE5jxVHY78Qi5Zd8oBWgGGypAs56kyJKarXPYAQmjvx_/exec";
+
+
+// ======================================
 // START CAMERA
-// ===============================
+// ======================================
 
 function startScanner() {
 
-  if (scanning) {
+  const scannedBy =
+    document.getElementById("scannedBy").value.trim();
+
+  if (!scannedBy) {
+
+    document.getElementById("result").innerHTML =
+      "❌ Pehle SCANNED BY name enter karo.";
+
+    document.getElementById("scannedBy").focus();
+
     return;
   }
+
+  if (running) return;
+
+  alreadyScanned = false;
 
   scanner = new Html5Qrcode("reader");
 
   const config = {
     fps: 10,
+
     qrbox: {
       width: 300,
       height: 150
@@ -143,19 +166,17 @@ function startScanner() {
   };
 
   scanner.start(
-    {
-      facingMode: "environment"
-    },
+    { facingMode: "environment" },
     config,
     onScanSuccess,
-    onScanError
+    function(error) {}
   )
   .then(function() {
 
-    scanning = true;
+    running = true;
 
     document.getElementById("result").innerHTML =
-      "📷 Camera ON — Barcode scan karo";
+      "📷 CAMERA ON<br>Barcode scan karo.";
 
   })
   .catch(function(error) {
@@ -167,73 +188,63 @@ function startScanner() {
     console.log(error);
 
   });
-
 }
 
 
-// ===============================
-// SUCCESSFUL SCAN
-// ===============================
+// ======================================
+// BARCODE SCANNED
+// ======================================
 
-function onScanSuccess(decodedText, decodedResult) {
+function onScanSuccess(decodedText) {
 
-  if (!decodedText) {
-    return;
-  }
+  if (alreadyScanned) return;
 
-  document.getElementById("manualCode").value = decodedText;
+  alreadyScanned = true;
+
+  const code =
+    String(decodedText).trim().toUpperCase();
+
+  const scannedBy =
+    document.getElementById("scannedBy").value.trim();
 
   document.getElementById("result").innerHTML =
-    "✅ SCANNED<br><br>" + decodedText;
+    "✅ BARCODE SCANNED<br><br>" +
+    code +
+    "<br><br>⏳ Google Sheet me entry ho rahi hai...";
 
-  // Stop camera after successful scan
   stopScanner();
 
-  // Send barcode back to original window
-  if (window.opener) {
+  // ====================================
+  // SEND DIRECTLY TO APPS SCRIPT
+  // ====================================
 
-    window.opener.postMessage(
-      {
-        type: "BOX_SCANNED",
-        containerCode: decodedText
-      },
-      "*"
-    );
+  const url =
+    APPS_SCRIPT_URL +
+    "?scan=1" +
+    "&code=" + encodeURIComponent(code) +
+    "&by=" + encodeURIComponent(scannedBy);
 
-    document.getElementById("result").innerHTML =
-      "✅ SCAN SUCCESSFUL<br><br>" +
-      decodedText +
-      "<br><br>Ab BOX SCANNING tab par wapas jao.";
+  setTimeout(function() {
 
-  }
+    window.location.href = url;
 
+  }, 500);
 }
 
 
-// ===============================
-// SCAN ERROR
-// ===============================
-
-function onScanError(errorMessage) {
-
-  // Ignore normal scanning errors
-
-}
-
-
-// ===============================
+// ======================================
 // STOP CAMERA
-// ===============================
+// ======================================
 
 function stopScanner() {
 
-  if (scanner && scanning) {
+  if (scanner && running) {
 
     scanner.stop()
       .then(function() {
 
         scanner.clear();
-        scanning = false;
+        running = false;
 
       })
       .catch(function(error) {
@@ -241,9 +252,7 @@ function stopScanner() {
         console.log(error);
 
       });
-
   }
-
 }
 
 </script>
